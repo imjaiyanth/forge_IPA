@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Factory } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { API_URL } from "@/services/api";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -13,7 +14,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? 'https://forgeipa-production.up.railway.app' : 'http://127.0.0.1:8000');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

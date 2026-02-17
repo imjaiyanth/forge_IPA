@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? 'https://forgeipa-production.up.railway.app' : 'http://127.0.0.1:8000');
+const rawApiUrl = import.meta.env.VITE_API_URL;
+function normalizeUrl(u: string | undefined) {
+  if (!u) return u;
+  // If user provided URL is missing scheme, assume https
+  if (/^https?:\/\//i.test(u)) return u;
+  return `https://${u}`;
+}
+
+export const API_URL = normalizeUrl(rawApiUrl) ?? (import.meta.env.PROD ? 'https://forgeipa-production.up.railway.app' : 'http://127.0.0.1:8000');
 
 export const api = axios.create({
     baseURL: API_URL,
