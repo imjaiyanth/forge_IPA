@@ -13,7 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+  const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? 'https://forgeipa-production.up.railway.app' : 'http://127.0.0.1:8000');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
