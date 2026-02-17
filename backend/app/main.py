@@ -19,6 +19,8 @@ def get_db():
 
 from fastapi.middleware.cors import CORSMiddleware
 
+import os
+
 origins = [
     "http://localhost",
     "http://localhost:3000",
@@ -27,6 +29,11 @@ origins = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
 ]
+
+# Add environment variable origins
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
+if allowed_origins_env:
+    origins.extend([origin.strip() for origin in allowed_origins_env.split(",")])
 
 app.add_middleware(
     CORSMiddleware,
