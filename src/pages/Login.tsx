@@ -13,6 +13,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -21,7 +23,7 @@ export default function Login() {
       formData.append('username', email);
       formData.append('password', password);
 
-      const response = await fetch('http://127.0.0.1:8000/token', {
+      const response = await fetch(`${API_URL}/token`, {
         method: 'POST',
         body: formData,
       });
@@ -34,7 +36,7 @@ export default function Login() {
       localStorage.setItem('token', data.access_token);
 
       // Fetch user details
-      const userRes = await fetch('http://127.0.0.1:8000/users/me', {
+      const userRes = await fetch(`${API_URL}/users/me`, {
         headers: {
           'Authorization': `Bearer ${data.access_token}`
         }
