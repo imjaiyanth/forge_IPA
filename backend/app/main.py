@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from . import models, schemas, crud, database, auth
 from .database import engine
@@ -42,6 +42,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Support Private Network Access (PNA) preflight for browser -> loopback requests
+# Modern browsers send `Access-Control-Request-Private-Network: true` on preflight when a
+# public origin tries to access a loopback/private address (e.g. 127.0.0.1).
+# The browser will block the request unless the preflight response includes
+# `Access-Control-Allow-Private-Network: true`.
+@app.middleware("http")
+async def add_private_network_header(request: Request, call_next):
+    response = await call_next(request)
+    if request.method == "OPTIONS" and request.headers.get("access-control-request-private-network"):
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
