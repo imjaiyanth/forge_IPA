@@ -33,7 +33,7 @@ interface QuotationData {
     notes: string[];
 }
 
-export function generateQuotationPdf(data: QuotationData) {
+export async function generateQuotationPdf(data: QuotationData) {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 14;
@@ -44,65 +44,209 @@ export function generateQuotationPdf(data: QuotationData) {
     const fmt = (n: number) =>
         "$ " + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    /* ───────────── HEADER TABLE (To / Prepared By) ───────────── */
-    const headerRows = [
-        [{ content: "To", styles: { fontStyle: "bold" as const } }, { content: "Prepared By", styles: { fontStyle: "bold" as const } }],
-        [data.clientName ? `(${data.clientName})` : "(Company Name Here)", data.companyName || "Tier Power Systems LLC"],
-        [`POC: (${data.clientPoc || "Contact Person Name"})`, `POC: (${data.companyPoc || "Logged In person Name"}) | (Their Position)`],
-        [`Email: (${data.clientEmail || "ClientEmail@clientemail.com"})`, `Email: (${data.companyEmail || "TPSEmail@TPSemail.com"})`],
-        [`Phone: (${data.clientPhone || "+91 999999999999"})`, `Phone: (${data.companyPhone || "+91 999999999999"})`],
-    ];
+    /* ───────────── HEADER LOGO & ADDRESS ───────────── */
+    try {
+        const logoUrl = "/j3m_logo.png";
+        const imgBytes = await fetch(logoUrl).then((res) => {
+             if (!res.ok) throw new Error("Logo not found");
+             return res.arrayBuffer();
+        });
+        const logoUint8 = new Uint8Array(imgBytes);
+        
+        // Add logo (Left) - Adjust dimensions as needed (approx ratio 3:1 based on file size/shape, assuming landscape logo)
+        // Logo width approx 50mm
+        doc.addImage(logoUint8, "PNG", margin, 10, 50, 15); 
+    } catch (err) {
+        console.error("Failed to load logo", err);
+        // Fallback text if logo fails
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text("J3M FABRICATION LLC", margin, 20);
+    }
 
+    // Address (Right)
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    const companyName = "J3M Fabrication LLC";
+    const addressLine = "Houston, Texas, US";
+    
+    // Right align relative to contentWidth + margin
+    const rightX = pageWidth - margin;
+    
+    doc.text(companyName, rightX, 15, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(addressLine, rightX, 20, { align: "right" });
+    
+    // Move Y down after header
+    y = 35;
+
+    /* ───────────── DETAILS TABLE ───────────── */
     autoTable(doc, {
         startY: y,
-        body: headerRows,
         theme: "grid",
         styles: {
             fontSize: 9,
             cellPadding: 3,
             lineColor: [0, 0, 0],
-            lineWidth: 0.3,
+            lineWidth: 0.1,
             textColor: [0, 0, 0],
+            valign: "top"
         },
         columnStyles: {
             0: { cellWidth: halfWidth },
             1: { cellWidth: halfWidth },
         },
-        didParseCell: (data) => {
-            if (data.row.index === 0) {
-                data.cell.styles.fontStyle = "bold";
-                data.cell.styles.fillColor = [255, 255, 255];
+        body: [
+            // We pass empty content here because we will draw it manually in didDrawCell
+            // to support mixed bold/normal text.
+            ["", ""], 
+            ["", ""]
+        ],
+        didDrawCell: (hookData) => {
+            if (hookData.section === 'body') {
+                // RESET TEXT COLOR TO BLACK FOR MANUAL DRAWING
+                doc.setTextColor(0, 0, 0);
+
+                const cellX = hookData.cell.x + 3; // + padding
+                let cellY = hookData.cell.y + 3; // Start tighter to top
+                
+                doc.setFontSize(9);
+                const lineHeight = 5;
+
+                // Row 1: To / Prepared By
+                if (hookData.row.index === 0) {
+                    if (hookData.column.index === 0) {
+                        // Left Cell: To
+                        doc.setFont("helvetica", "bold");
+                        doc.text("To", cellX, cellY);
+                        cellY += lineHeight;
+                        
+                        doc.setFont("helvetica", "normal");
+                        // Company Name
+                        doc.text(data.clientName || "(Company Name Here)", cellX, cellY);
+                        cellY += lineHeight;
+
+                        // POC
+                        doc.setFont("helvetica", "bold");
+                        doc.text("POC:", cellX, cellY);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(data.clientPoc || "(Contact Person Name)", cellX + 10, cellY); 
+                        cellY += lineHeight;
+
+                        // Email
+                        doc.setFont("helvetica", "bold");
+                        doc.text("Email:", cellX, cellY);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(data.clientEmail || "(N/A)", cellX + 12, cellY);
+                        cellY += lineHeight;
+
+                        // Phone
+                        doc.setFont("helvetica", "bold");
+                        doc.text("Phone:", cellX, cellY);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(data.clientPhone || "(N/A)", cellX + 13, cellY);
+                    } else {
+                        // Right Cell: Prepared By
+                        doc.setFont("helvetica", "bold");
+                        doc.text("Prepared By", cellX, cellY);
+                        cellY += lineHeight;
+                        
+                        doc.setFont("helvetica", "normal");
+                        doc.text(data.companyName || "J3M Fabrication LLC", cellX, cellY);
+                        cellY += lineHeight;
+
+                        // POC
+                        doc.setFont("helvetica", "bold");
+                        doc.text("POC:", cellX, cellY);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(data.companyPoc || "TPS_Admin | Sales Engineer", cellX + 10, cellY);
+                        cellY += lineHeight;
+
+                        // Email
+                        doc.setFont("helvetica", "bold");
+                        doc.text("Email:", cellX, cellY);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(data.companyEmail || "admin@j3mfabrication.com", cellX + 12, cellY);
+                        cellY += lineHeight;
+
+                        // Phone
+                        doc.setFont("helvetica", "bold");
+                        doc.text("Phone:", cellX, cellY);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(data.companyPhone || "480-900-8401", cellX + 13, cellY);
+                    }
+                }
+                // Row 2: Proposal Info
+                else if (hookData.row.index === 1) {
+                     // Reset Y for row 2 to optimize vertical centering
+                     cellY = hookData.cell.y + 4;
+
+                     if (hookData.column.index === 0) {
+                        // Proposal No
+                        doc.setFont("helvetica", "bold");
+                        doc.text("Proposal No:", cellX, cellY);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(data.proposalNo || "TPS_23XXX", cellX + 22, cellY);
+                        cellY += lineHeight;
+
+                        // Project
+                        doc.setFont("helvetica", "bold");
+                        doc.text("Project:", cellX, cellY);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(data.projectName || "PROJECT NAME", cellX + 14, cellY);
+
+                     } else {
+                        // Right align calculations
+                        const cellRightX = hookData.cell.x + hookData.cell.width - 3;
+                        
+                        // Valid Until
+                        doc.setFont("helvetica", "normal");
+                        const validText = data.validThru || "MM/DD/YYYY";
+                        doc.text(validText, cellRightX, cellY + lineHeight, { align: "right" });
+                        
+                        doc.setFont("helvetica", "bold");
+                        const validLabel = "Valid Until: ";
+                        doc.text(validLabel, cellRightX - doc.getTextWidth(validText) - 1, cellY + lineHeight, { align: "right" });
+
+                        // Proposal Date (Above Valid Until)
+                        doc.setFont("helvetica", "normal");
+                        const dateText = data.proposalDate || "MM/DD/YYYY";
+                        doc.text(dateText, cellRightX, cellY, { align: "right" });
+                        
+                        doc.setFont("helvetica", "bold");
+                        const dateLabel = "Proposal Date: ";
+                        doc.text(dateLabel, cellRightX - doc.getTextWidth(dateText) - 1, cellY, { align: "right" });
+                     }
+                }
             }
         },
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 4;
-
-    /* ───────────── PROPOSAL INFO TABLE ───────────── */
-    autoTable(doc, {
-        startY: y,
-        body: [
-            [
-                { content: `Proposal No : ${data.proposalNo || "TPS Proposal 23XXX"}`, styles: { fontStyle: "bold" as const } },
-                { content: `Proposal Date: ${data.proposalDate || "(Document Created date/Today)"}`, styles: { fontStyle: "bold" as const } },
-            ],
-            [
-                { content: `Project : ${data.projectName || "NAME"}`, styles: { fontStyle: "bold" as const } },
-                { content: `Valid Thru : ${data.validThru || "DD/MM/YYYY (15 days from abv. date)"}`, styles: { fontStyle: "bold" as const } },
-            ],
-        ],
-        theme: "grid",
+        // Force row height to accommodate the manual text
+        willDrawCell: (hookData) => {
+            if (hookData.section === 'body') {
+                 if (hookData.row.index === 0) {
+                    hookData.row.height = 36; // Reduced height to remove gap
+                 } else if (hookData.row.index === 1) {
+                    hookData.row.height = 15; // Compact height for Proposal details
+                 }
+            }
+        },
         styles: {
             fontSize: 9,
             cellPadding: 3,
             lineColor: [0, 0, 0],
-            lineWidth: 0.3,
-            textColor: [0, 0, 0],
+            lineWidth: 0.1,
+            textColor: [255, 255, 255], // Hide the placeholder text (newlines)
+            valign: "top",
+            overflow: "visible" 
         },
-        columnStyles: {
-            0: { cellWidth: halfWidth },
-            1: { cellWidth: halfWidth },
-        },
+        body: [
+             // Body with spaces to force some height calculation if minHeight fails, 
+             // but minHeight is key.
+             ["\n\n\n\n\n\n", "\n\n\n\n\n\n"], 
+             ["\n\n", "\n\n"]
+        ],
+        theme: 'grid'
     });
 
     y = (doc as any).lastAutoTable.finalY + 8;
@@ -159,55 +303,10 @@ export function generateQuotationPdf(data: QuotationData) {
 
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    /* ───────────── 2. PROJECT SCHEDULE & COMMERCIAL NOTES ───────────── */
+    /* ───────────── 2. NOTES ───────────── */
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("2. Project Schedule & Commercial Notes:", margin, y);
-    y += 5;
-
-    const scheduleRows =
-        data.schedule.length > 0
-            ? data.schedule.map((s, i) => [(i + 1).toString(), s.description, s.date])
-            : [
-                ["1", "PO release date", "11/15/2025"],
-                ["2", "Long lead submittal issued to client", "11/21/2025"],
-                ["3", "Client approved long lead submittal", "11/28/2025"],
-                ["4", "Approval Drawings issued to client", "12/12/2025"],
-                ["5", "Client returning approval drawings", "12/19/2025"],
-                ["6", "Shipment date", "4/24/2026"],
-            ];
-
-    autoTable(doc, {
-        startY: y,
-        head: [["S.No.", "Description", "Start Up Services"]],
-        body: scheduleRows,
-        theme: "grid",
-        styles: {
-            fontSize: 9,
-            cellPadding: 2.5,
-            lineColor: [0, 0, 0],
-            lineWidth: 0.3,
-            textColor: [0, 0, 0],
-        },
-        headStyles: {
-            fillColor: [80, 80, 80],
-            textColor: [255, 255, 255],
-            fontStyle: "bold",
-            halign: "center",
-        },
-        columnStyles: {
-            0: { cellWidth: 20, halign: "center" },
-            1: { cellWidth: 105 },
-            2: { cellWidth: 57, halign: "right" },
-        },
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 4;
-
-    /* ───────────── NOTES SECTION ───────────── */
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Notes:", margin, y);
+    doc.text("2. Notes:", margin, y);
     y += 5;
 
     doc.setFont("helvetica", "normal");

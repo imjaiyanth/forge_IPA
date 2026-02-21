@@ -56,7 +56,7 @@ export default function AppLayout({ children, title, breadcrumbs }: AppLayoutPro
         {/* Logo */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-border">
           {!collapsed && (
-            <span className="text-lg font-bold text-primary tracking-tight">Forge IPA</span>
+            <span className="text-lg font-bold text-primary tracking-tight">Forge i-DAS</span>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}

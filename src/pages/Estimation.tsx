@@ -157,6 +157,13 @@ export default function Estimation() {
   const toggleSection = (s: keyof typeof collapsed) =>
     setCollapsed({ ...collapsed, [s]: !collapsed[s] });
 
+  /* ── minimized parts state ── */
+  const [minimizedParts, setMinimizedParts] = useState<Record<number, boolean>>({});
+
+  const toggleMinimizePart = (id: number) => {
+    setMinimizedParts((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   /* ── data fetching ── */
   useEffect(() => {
     // Try to load estimation data first; fallback to project data
@@ -236,6 +243,12 @@ export default function Estimation() {
     if (customParts.length > 1) setCustomParts(customParts.filter((p) => p.id !== partId));
   };
 
+  const duplicateCustomPart = (partId: number) => {
+    const part = customParts.find((p) => p.id === partId);
+    if (!part) return;
+    setCustomParts([...customParts, { ...part, id: Date.now() + Math.random() }]);
+  };
+
   const updatePart = (partId: number, field: keyof CustomPart, value: string) => {
     setCustomParts(customParts.map((p) => (p.id === partId ? { ...p, [field]: value } : p)));
   };
@@ -260,139 +273,174 @@ export default function Estimation() {
         {/* ═══════════ BASIC DETAILS ═══════════ */}
         <div className="bg-card rounded-xl border border-border p-5 card-shadow">
           <fieldset>
-            <legend className="text-sm font-bold mb-4 px-2">Basic Details</legend>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-              {/* Row 1 */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Client Name</Label>
-                <Select
-                  value={basic.clientName}
-                  onValueChange={(v) => setBasic({ ...basic, clientName: v })}
-                >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Select client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.name}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Prepared By</Label>
-                <Input
-                  value={basic.preparedBy}
-                  onChange={(e) => setBasic({ ...basic, preparedBy: e.target.value })}
-                  className="h-9 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Project Name</Label>
-                <Input
-                  value={basic.projectName}
-                  onChange={(e) => setBasic({ ...basic, projectName: e.target.value })}
-                  className="h-9 text-sm"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Column 1: Client Details */}
+              <div className="space-y-3 p-4 bg-muted/20 rounded-lg">
+                <h3 className="font-semibold text-sm mb-2 border-b border-border pb-1">Client Details</h3>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Load Client (Optional)</Label>
+                  <Select
+                    onValueChange={(v) => {
+                      const c = clients.find((client) => client.name === v);
+                      if (c) {
+                        setBasic({
+                          ...basic,
+                          clientName: c.name,
+                          billingAddress: c.billing_address || "",
+                          poc: c.poc_name || "",
+                          pocPhone: c.poc_phone || "",
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Select from list..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c) => (
+                        <SelectItem key={c.id} value={c.name}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Client Name (For Quote)</Label>
+                  <Input
+                    className="h-9 text-sm"
+                    value={basic.clientName}
+                    onChange={(e) => setBasic({ ...basic, clientName: e.target.value })}
+                    placeholder="Type client name..."
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Billing Address</Label>
+                  <Input
+                    value={basic.billingAddress}
+                    onChange={(e) => setBasic({ ...basic, billingAddress: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">POC</Label>
+                  <Input
+                    value={basic.poc}
+                    onChange={(e) => setBasic({ ...basic, poc: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">POC Phone</Label>
+                  <Input
+                    value={basic.pocPhone}
+                    onChange={(e) => setBasic({ ...basic, pocPhone: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
               </div>
 
-              {/* Row 2 */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Billing Address</Label>
-                <Input
-                  value={basic.billingAddress}
-                  onChange={(e) => setBasic({ ...basic, billingAddress: e.target.value })}
-                  className="h-9 text-sm"
-                />
+              {/* Column 2: Sellers Details */}
+              <div className="space-y-3 p-4 bg-muted/20 rounded-lg">
+                <h3 className="font-semibold text-sm mb-2 border-b border-border pb-1">Sellers Details</h3>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Prepared By</Label>
+                  <Input
+                    value={basic.preparedBy}
+                    onChange={(e) => setBasic({ ...basic, preparedBy: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">POC</Label>
+                  <Input className="h-9 text-sm" placeholder="" /> 
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">POC Designation</Label>
+                  <Input 
+                    value={basic.pocDesignation} 
+                    onChange={(e) => setBasic({ ...basic, pocDesignation: e.target.value })}
+                    className="h-9 text-sm" 
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">POC Email</Label>
+                  <Input
+                    value={basic.pocEmail}
+                    onChange={(e) => setBasic({ ...basic, pocEmail: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">POC</Label>
-                <Input
-                  value={basic.poc}
-                  onChange={(e) => setBasic({ ...basic, poc: e.target.value })}
-                  className="h-9 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Ship to Address</Label>
-                <div className="flex items-center gap-3">
+
+              {/* Column 3: Project Details */}
+              <div className="space-y-3 p-4 bg-muted/20 rounded-lg">
+                <h3 className="font-semibold text-sm mb-2 border-b border-border pb-1">Project Details</h3>
+                
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Project Name</Label>
+                  <Input
+                    value={basic.projectName}
+                    onChange={(e) => setBasic({ ...basic, projectName: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Ship to Address</Label>
                   <Input
                     value={basic.sameAsBilling ? basic.billingAddress : basic.shipToAddress}
                     onChange={(e) => setBasic({ ...basic, shipToAddress: e.target.value })}
-                    className="h-9 text-sm flex-1"
+                    className="h-9 text-sm"
                     disabled={basic.sameAsBilling}
                   />
+                  <div className="flex flex-wrap items-center gap-4 mt-2">
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                      <Checkbox
+                        checked={basic.sameAsBilling}
+                        onCheckedChange={(v) => setBasic({ ...basic, sameAsBilling: !!v })}
+                      />
+                      Same as Billing
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                      <Checkbox
+                        checked={basic.countryZipCode}
+                        onCheckedChange={(v) => setBasic({ ...basic, countryZipCode: !!v })}
+                      />
+                      Country/Zip Code
+                    </label>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 mt-1">
-                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                    <Checkbox
-                      checked={basic.sameAsBilling}
-                      onCheckedChange={(v) => setBasic({ ...basic, sameAsBilling: !!v })}
-                    />
-                    Same as Billing
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                    <Checkbox
-                      checked={basic.countryZipCode}
-                      onCheckedChange={(v) => setBasic({ ...basic, countryZipCode: !!v })}
-                    />
-                    Country/Zip Code
-                  </label>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Revision</Label>
+                  <Select
+                    value={basic.revision}
+                    onValueChange={(v) => setBasic({ ...basic, revision: v })}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A">A</SelectItem>
+                      <SelectItem value="B">B</SelectItem>
+                      <SelectItem value="C">C</SelectItem>
+                      <SelectItem value="D">D</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              {/* Row 3 */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">POC</Label>
-                <Input className="h-9 text-sm" placeholder="" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">POC Designation</Label>
-                <Input className="h-9 text-sm" placeholder="" />
-              </div>
-
-              {/* Row 4 */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">POC Phone</Label>
-                <Input
-                  value={basic.pocPhone}
-                  onChange={(e) => setBasic({ ...basic, pocPhone: e.target.value })}
-                  className="h-9 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">POC Phone</Label>
-                <Input className="h-9 text-sm" placeholder="" />
-              </div>
-
-              {/* Row 5 */}
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">POC Email</Label>
-                <Input
-                  value={basic.pocEmail}
-                  onChange={(e) => setBasic({ ...basic, pocEmail: e.target.value })}
-                  className="h-9 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Revision</Label>
-                <Select
-                  value={basic.revision}
-                  onValueChange={(v) => setBasic({ ...basic, revision: v })}
-                >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A">A</SelectItem>
-                    <SelectItem value="B">B</SelectItem>
-                    <SelectItem value="C">C</SelectItem>
-                    <SelectItem value="D">D</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </fieldset>
         </div>
@@ -424,11 +472,19 @@ export default function Estimation() {
                       #{idx + 1} Custom Part
                     </h4>
                     <div className="flex items-center gap-1">
-                      <button className="p-1 rounded hover:bg-muted" title="Duplicate">
+                      <button 
+                        className="p-1 rounded hover:bg-muted" 
+                        title="Duplicate"
+                        onClick={() => duplicateCustomPart(part.id)}
+                      >
                         <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
-                      <button className="p-1 rounded hover:bg-muted" title="Minimize">
-                        <Minus className="h-3.5 w-3.5 text-muted-foreground" />
+                      <button 
+                        className="p-1 rounded hover:bg-muted" 
+                        title={minimizedParts[part.id] ? "Maximize" : "Minimize"}
+                        onClick={() => toggleMinimizePart(part.id)}
+                      >
+                        {minimizedParts[part.id] ? <Plus className="h-3.5 w-3.5 text-muted-foreground" /> : <Minus className="h-3.5 w-3.5 text-muted-foreground" />}
                       </button>
                       <button
                         className="p-1 rounded hover:bg-destructive/10"
@@ -441,6 +497,7 @@ export default function Estimation() {
                   </div>
 
                   {/* Part fields */}
+                  {!minimizedParts[part.id] && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
                     {/* Row 1 */}
                     <div className="space-y-1">
@@ -572,6 +629,7 @@ export default function Estimation() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -674,15 +732,29 @@ export default function Estimation() {
                     const fmtDate = (d: Date) =>
                       `${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getDate().toString().padStart(2, "0")}/${d.getFullYear()}`;
 
+                    const noteLines = (quotation.note || "")
+                      .split(/\r?\n/)
+                      .map((n) => n.trim())
+                      .filter(Boolean);
+
                     generateQuotationPdf({
+                      // Client Details (To)
                       clientName: basic.clientName,
-                      clientPoc: basic.poc,
-                      clientEmail: basic.pocEmail,
-                      clientPhone: basic.pocPhone,
-                      companyName: "Forge IPA",
+                      clientPoc: basic.poc, // "POC" from Client Details
+                      clientEmail: "", // There is no dedicated client email field in column 1, only POC Email is in column 2 (Sellers).
+                                       // Looking at the UI code:
+                                       // Column 1 (Client): Name, Billing, POC, POC Phone.
+                                       // Column 2 (Seller): Prepared By, POC, POC Designation, POC Email.
+                                       // This data model is slightly mixed. I will map strict to what's visually in the column.
+                                       // If column 1 has no email input, I pass empty.
+                      clientPhone: basic.pocPhone, // "POC Phone" from Client Details
+                      
+                      // Sellers Details (Prepared By)
+                      companyName: "J3M Fabrication LLC",
                       companyPoc: basic.preparedBy,
-                      companyEmail: "",
-                      companyPhone: "",
+                      companyEmail: basic.pocEmail, // "POC Email" from Sellers Details
+                      companyPhone: "480-900-8401", // Hardcoded J3M phone as per image, since no input field exists in seller column.
+                      
                       proposalNo: quotation.quotationNo,
                       proposalDate: quotation.quotationDate || fmtDate(today),
                       projectName: basic.projectName,
@@ -696,7 +768,7 @@ export default function Estimation() {
                           (parseInt(p.quantity) || 1),
                       })),
                       schedule: [],
-                      notes: [],
+                      notes: noteLines,
                     });
                   }}
                 >

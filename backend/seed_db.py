@@ -49,9 +49,9 @@ mock_estimation = {
 }
 
 mock_company = {
-  "name": "Forge IPA Manufacturing",
+  "name": "Forge i-DAS",
   "address": "Plot No. 45, MIDC Industrial Area, Pune, Maharashtra 411026",
-  "email": "info@forgeipa.com",
+  "email": "info@forgeidas.com",
   "phone": "+91 20 2710 4500",
 }
 

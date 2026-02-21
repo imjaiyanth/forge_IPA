@@ -64,7 +64,7 @@ export default function Login() {
             <div className="h-12 w-12 bg-primary rounded-xl flex items-center justify-center mb-3">
               <Factory className="h-6 w-6 text-primary-foreground" />
             </div>
-            <h1 className="text-xl font-bold text-foreground">Forge IPA</h1>
+            <h1 className="text-xl font-bold text-foreground">Forge i-DAS</h1>
             <p className="text-sm text-muted-foreground mt-1">Manufacturing Estimation System</p>
           </div>
 
@@ -74,7 +74,7 @@ export default function Login() {
               <Input
                 id="email"
                 type="email"
-                placeholder="you@forgeipa.com"
+                placeholder="you@forgeidas.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
