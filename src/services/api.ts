@@ -40,7 +40,8 @@ export const getVendors = async () => {
     const response = await api.get('/vendors');
     return response.data.map((v: any) => ({
         ...v,
-        vendorId: v.vendor_id
+        vendorId: v.vendor_id,
+        rawMaterials: v.raw_materials ? JSON.parse(v.raw_materials) : []
     }));
 };
 
@@ -151,7 +152,8 @@ export const createVendor = async (vendor: any) => {
         address: vendor.address,
         poc: vendor.poc,
         phone: vendor.phone,
-        email: vendor.email
+        email: vendor.email,
+        raw_materials: vendor.rawMaterials ? JSON.stringify(vendor.rawMaterials) : null
     };
     const response = await api.post('/vendors', data);
     return response.data;
@@ -164,7 +166,8 @@ export const updateVendor = async (id: number, vendor: any) => {
         address: vendor.address,
         poc: vendor.poc,
         phone: vendor.phone,
-        email: vendor.email
+        email: vendor.email,
+        raw_materials: vendor.rawMaterials ? JSON.stringify(vendor.rawMaterials) : null
     };
     const response = await api.put(`/vendors/${id}`, data);
     return response.data;

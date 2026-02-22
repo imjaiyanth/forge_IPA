@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
-import { getEstimations, getClients, getMembers } from "@/services/api";
+import { getEstimations, getClients, getMembers, getCompany } from "@/services/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Download, Upload, X, Minus, Copy, ChevronDown } from "lucide-react";
 import { generateQuotationPdf } from "@/utils/generateQuotationPdf";
+import { useToast } from "@/hooks/use-toast";
 
 /* ──────────── types ──────────── */
 interface CustomPart {
@@ -68,9 +69,11 @@ function SectionHeader({ number, title, color = "bg-teal-600", collapsed, onTogg
 /* ──────────── main component ──────────── */
 export default function Estimation() {
   const { id } = useParams();
+  const { toast } = useToast();
   const [estimation, setEstimation] = useState<any>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [company, setCompany] = useState<{ name: string; address: string; email: string; phone: string }>({ name: "", address: "", email: "", phone: "" });
   const [showJobModal, setShowJobModal] = useState(false);
   const [jobQuantities, setJobQuantities] = useState<Record<JobTypeKey, number>>(
     () => JOB_TYPES.reduce((acc, jt) => ({ ...acc, [jt.key]: 0 }), {} as Record<JobTypeKey, number>)
@@ -78,6 +81,7 @@ export default function Estimation() {
 
   /* ── basic details state ── */
   const [basic, setBasic] = useState({
+    clientId: "",
     clientName: "",
     preparedBy: "",
     projectName: "",
@@ -88,9 +92,11 @@ export default function Estimation() {
     pocPhone: "",
     pocPhoneRight: "",
     pocEmail: "",
+    clientEmail: "",
     revision: "A",
     sameAsBilling: false,
     countryZipCode: false,
+    sellerPoc: "",
   });
 
   /* ── custom parts state ── */
@@ -178,11 +184,13 @@ export default function Estimation() {
           setEstimation(found);
           setBasic((prev) => ({
             ...prev,
+            clientId: (found as any).client_id || found.clientId || prev.clientId || "",
             clientName: found.client_name || found.clientName || "",
             billingAddress: found.billing_address || found.billingAddress || "",
             shipToAddress: found.ship_to_address || found.shipToAddress || "",
             poc: found.poc_name || found.pocName || "",
             pocPhone: found.poc_phone || found.pocPhone || "",
+            clientEmail: (found as any).client_email || found.clientEmail || prev.clientEmail || "",
             pocEmail: found.poc_email || found.pocEmail || "",
             preparedBy: found.prepared_by || found.preparedBy || "",
             projectName: found.project_name || found.projectName || "",
@@ -215,7 +223,30 @@ export default function Estimation() {
     loadData();
     getClients().then(setClients).catch(console.error);
     getMembers().then(setMembers).catch(console.error);
+    getCompany().then((data: any) => {
+      if (data) setCompany({ name: data.name || "", address: data.address || "", email: data.email || "", phone: data.phone || "" });
+    }).catch(console.error);
   }, [id]);
+
+  /* ── preload seller details from profile ── */
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      if (!stored) return;
+      const user = JSON.parse(stored) as { name?: string; email?: string; role?: string; contact?: string; phone?: string };
+
+      setBasic((prev) => ({
+        ...prev,
+        preparedBy: prev.preparedBy || user.name || "",
+        sellerPoc: prev.sellerPoc || user.name || "",
+        pocDesignation: prev.pocDesignation || user.role || "",
+        pocEmail: prev.pocEmail || user.email || "",
+        pocPhoneRight: prev.pocPhoneRight || user.contact || user.phone || "",
+      }));
+    } catch (err) {
+      console.error("Failed to load profile into seller details:", err);
+    }
+  }, []);
 
   /* ── custom parts helpers ── */
   const addCustomPart = () => {
@@ -253,6 +284,39 @@ export default function Estimation() {
     setCustomParts(customParts.map((p) => (p.id === partId ? { ...p, [field]: value } : p)));
   };
 
+  /* ── validation for mandatory custom part fields ── */
+  const validateCustomParts = (): { valid: boolean; missingParts: number[] } => {
+    const missingParts: number[] = [];
+    customParts.forEach((part, idx) => {
+      const isMissing =
+        !part.jobDescription?.trim() ||
+        !part.material?.trim() ||
+        !part.materialGrade?.trim() ||
+        !part.quantity?.trim() ||
+        !part.drawingPartNo?.trim() ||
+        !part.rawMaterialSuppliedBy?.trim() ||
+        !part.jobCostUnit?.trim() ||
+        !part.rawMaterialDimension?.trim();
+      if (isMissing) missingParts.push(idx + 1);
+    });
+    return { valid: missingParts.length === 0, missingParts };
+  };
+
+  const isFieldMissing = (part: CustomPart, field: keyof CustomPart): boolean => {
+    const mandatoryFields: (keyof CustomPart)[] = [
+      "jobDescription",
+      "material",
+      "materialGrade",
+      "quantity",
+      "drawingPartNo",
+      "rawMaterialSuppliedBy",
+      "jobCostUnit",
+      "rawMaterialDimension",
+    ];
+    if (!mandatoryFields.includes(field)) return false;
+    return !part[field]?.toString().trim();
+  };
+
   if (!estimation)
     return (
       <AppLayout title="Loading...">
@@ -271,27 +335,49 @@ export default function Estimation() {
     >
       <div className="space-y-6">
         {/* ═══════════ BASIC DETAILS ═══════════ */}
-        <div className="bg-card rounded-xl border border-border p-5 card-shadow">
-          <fieldset>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
+        <div className="relative overflow-hidden rounded-xl border border-blue-200/70 bg-blue-50/50 dark:bg-blue-950/20 card-shadow">
+          {/* top accent bar */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400" />
+          <fieldset className="relative p-5 md:p-6">
+            {/* header */}
+            <div className="mb-5 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700/80 dark:text-blue-400/80">
+                  Basic Information
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Client, seller and project details at a glance.
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-[11px] font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                Step 0 · Overview
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {/* Column 1: Client Details */}
-              <div className="space-y-3 p-4 bg-muted/20 rounded-lg">
-                <h3 className="font-semibold text-sm mb-2 border-b border-border pb-1">Client Details</h3>
-                
+              <div className="space-y-3 rounded-lg border border-border/60 bg-white/60 dark:bg-muted/30 p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md">
+                <h3 className="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-50 dark:bg-blue-900/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  Client Details
+                </h3>
+
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Load Client (Optional)</Label>
                   <Select
                     onValueChange={(v) => {
                       const c = clients.find((client) => client.name === v);
                       if (c) {
-                        setBasic({
-                          ...basic,
-                          clientName: c.name,
-                          billingAddress: c.billing_address || "",
-                          poc: c.poc_name || "",
-                          pocPhone: c.poc_phone || "",
-                        });
+                        setBasic((prev) => ({
+                          ...prev,
+                          clientId: c.clientId || "",
+                          clientName: c.name || "",
+                          billingAddress: c.address || "",
+                          poc: c.poc || "",
+                          pocPhone: c.phone || "",
+                          clientEmail: c.email || "",
+                        }));
                       }
                     }}
                   >
@@ -347,9 +433,12 @@ export default function Estimation() {
               </div>
 
               {/* Column 2: Sellers Details */}
-              <div className="space-y-3 p-4 bg-muted/20 rounded-lg">
-                <h3 className="font-semibold text-sm mb-2 border-b border-border pb-1">Sellers Details</h3>
-                
+              <div className="space-y-3 rounded-lg border border-border/60 bg-white/60 dark:bg-muted/30 p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md">
+                <h3 className="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-50 dark:bg-blue-900/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+                  Sellers Details
+                </h3>
+
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Prepared By</Label>
                   <Input
@@ -361,7 +450,11 @@ export default function Estimation() {
 
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">POC</Label>
-                  <Input className="h-9 text-sm" placeholder="" /> 
+                  <Input
+                    value={basic.sellerPoc}
+                    onChange={(e) => setBasic({ ...basic, sellerPoc: e.target.value })}
+                    className="h-9 text-sm"
+                  /> 
                 </div>
 
                 <div className="space-y-1">
@@ -381,12 +474,24 @@ export default function Estimation() {
                     className="h-9 text-sm"
                   />
                 </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">POC Phone</Label>
+                  <Input
+                    value={basic.pocPhoneRight}
+                    onChange={(e) => setBasic({ ...basic, pocPhoneRight: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
               </div>
 
               {/* Column 3: Project Details */}
-              <div className="space-y-3 p-4 bg-muted/20 rounded-lg">
-                <h3 className="font-semibold text-sm mb-2 border-b border-border pb-1">Project Details</h3>
-                
+              <div className="space-y-3 rounded-lg border border-border/60 bg-white/60 dark:bg-muted/30 p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md">
+                <h3 className="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-50 dark:bg-blue-900/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                  Project Details
+                </h3>
+
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Project Name</Label>
                   <Input
@@ -501,20 +606,34 @@ export default function Estimation() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
                     {/* Row 1 */}
                     <div className="space-y-1">
-                      <Label className="text-xs">Job Description</Label>
+                      <Label className="text-xs">
+                        Job Description <span className="text-red-500">*</span>
+                      </Label>
                       <Input
                         value={part.jobDescription}
                         onChange={(e) => updatePart(part.id, "jobDescription", e.target.value)}
-                        className="h-8 text-sm"
+                        className={`h-8 text-sm ${
+                          isFieldMissing(part, "jobDescription")
+                            ? "border-red-500 focus:ring-red-500"
+                            : ""
+                        }`}
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Material</Label>
+                      <Label className="text-xs">
+                        Material <span className="text-red-500">*</span>
+                      </Label>
                       <Select
                         value={part.material}
                         onValueChange={(v) => updatePart(part.id, "material", v)}
                       >
-                        <SelectTrigger className="h-8 text-sm">
+                        <SelectTrigger
+                          className={`h-8 text-sm ${
+                            isFieldMissing(part, "material")
+                              ? "border-red-500 focus:ring-red-500"
+                              : ""
+                          }`}
+                        >
                           <SelectValue placeholder="Select" />
                         </SelectTrigger>
                         <SelectContent>
@@ -552,39 +671,65 @@ export default function Estimation() {
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Material Grade</Label>
+                      <Label className="text-xs">
+                        Material Grade <span className="text-red-500">*</span>
+                      </Label>
                       <Input
                         value={part.materialGrade}
                         onChange={(e) => updatePart(part.id, "materialGrade", e.target.value)}
-                        className="h-8 text-sm"
+                        className={`h-8 text-sm ${
+                          isFieldMissing(part, "materialGrade")
+                            ? "border-red-500 focus:ring-red-500"
+                            : ""
+                        }`}
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Quantity</Label>
+                      <Label className="text-xs">
+                        Quantity <span className="text-red-500">*</span>
+                      </Label>
                       <Input
                         value={part.quantity}
                         onChange={(e) => updatePart(part.id, "quantity", e.target.value)}
                         type="number"
-                        className="h-8 text-sm"
+                        className={`h-8 text-sm ${
+                          isFieldMissing(part, "quantity")
+                            ? "border-red-500 focus:ring-red-500"
+                            : ""
+                        }`}
                       />
                     </div>
 
                     {/* Row 3 */}
                     <div className="space-y-1">
-                      <Label className="text-xs">Drawing/Part No.</Label>
+                      <Label className="text-xs">
+                        Drawing/Part No. <span className="text-red-500">*</span>
+                      </Label>
                       <Input
                         value={part.drawingPartNo}
                         onChange={(e) => updatePart(part.id, "drawingPartNo", e.target.value)}
-                        className="h-8 text-sm"
+                        className={`h-8 text-sm ${
+                          isFieldMissing(part, "drawingPartNo")
+                            ? "border-red-500 focus:ring-red-500"
+                            : ""
+                        }`}
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Raw Material Supplied by</Label>
+                      <Label className="text-xs">
+                        Raw Material Supplied by <span className="text-red-500">*</span>
+                      </Label>
                       <Select
                         value={part.rawMaterialSuppliedBy}
                         onValueChange={(v) => updatePart(part.id, "rawMaterialSuppliedBy", v)}
                       >
-                        <SelectTrigger className="h-8 text-sm">
+                        <SelectTrigger
+                          className={`h-8 text-sm ${
+                            isFieldMissing(part, "rawMaterialSuppliedBy")
+                              ? "border-red-500 focus:ring-red-500"
+                              : ""
+                          }`}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -595,12 +740,18 @@ export default function Estimation() {
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Job Cost/Unit</Label>
+                      <Label className="text-xs">
+                        Job Cost/Unit <span className="text-red-500">*</span>
+                      </Label>
                       <Input
                         value={part.jobCostUnit}
                         onChange={(e) => updatePart(part.id, "jobCostUnit", e.target.value)}
                         type="number"
-                        className="h-8 text-sm"
+                        className={`h-8 text-sm ${
+                          isFieldMissing(part, "jobCostUnit")
+                            ? "border-red-500 focus:ring-red-500"
+                            : ""
+                        }`}
                       />
                     </div>
 
@@ -613,11 +764,17 @@ export default function Estimation() {
                       </label>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Raw Material Dimension</Label>
+                      <Label className="text-xs">
+                        Raw Material Dimension <span className="text-red-500">*</span>
+                      </Label>
                       <Input
                         value={part.rawMaterialDimension}
                         onChange={(e) => updatePart(part.id, "rawMaterialDimension", e.target.value)}
-                        className="h-8 text-sm"
+                        className={`h-8 text-sm ${
+                          isFieldMissing(part, "rawMaterialDimension")
+                            ? "border-red-500 focus:ring-red-500"
+                            : ""
+                        }`}
                       />
                     </div>
                     <div className="space-y-1">
@@ -726,6 +883,16 @@ export default function Estimation() {
                 <Button
                   className="bg-blue-600 hover:bg-blue-700"
                   onClick={() => {
+                    const { valid, missingParts } = validateCustomParts();
+                    if (!valid) {
+                      toast({
+                        title: "Required fields missing",
+                        description: `Please fill all fields marked * in Custom Part(s): ${missingParts.join(", ")}.`,
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
                     const today = new Date();
                     const validDate = new Date(today);
                     validDate.setDate(validDate.getDate() + 15);
@@ -741,32 +908,35 @@ export default function Estimation() {
                       // Client Details (To)
                       clientName: basic.clientName,
                       clientPoc: basic.poc, // "POC" from Client Details
-                      clientEmail: "", // There is no dedicated client email field in column 1, only POC Email is in column 2 (Sellers).
-                                       // Looking at the UI code:
-                                       // Column 1 (Client): Name, Billing, POC, POC Phone.
-                                       // Column 2 (Seller): Prepared By, POC, POC Designation, POC Email.
-                                       // This data model is slightly mixed. I will map strict to what's visually in the column.
-                                       // If column 1 has no email input, I pass empty.
+                      clientEmail: basic.clientEmail || "", // Email from selected client record (Clients page)
                       clientPhone: basic.pocPhone, // "POC Phone" from Client Details
                       
-                      // Sellers Details (Prepared By)
-                      companyName: "J3M Fabrication LLC",
-                      companyPoc: basic.preparedBy,
-                      companyEmail: basic.pocEmail, // "POC Email" from Sellers Details
-                      companyPhone: "480-900-8401", // Hardcoded J3M phone as per image, since no input field exists in seller column.
+                      // Sellers Details (Prepared By) — from Company DB
+                      companyName: company.name,
+                      companyAddress: company.address,
+                      companyPoc: basic.sellerPoc || basic.preparedBy,
+                      companyEmail: basic.pocEmail || company.email,
+                      companyPhone: basic.pocPhoneRight || company.phone,
                       
                       proposalNo: quotation.quotationNo,
                       proposalDate: quotation.quotationDate || fmtDate(today),
                       projectName: basic.projectName,
                       validThru: quotation.quotationValidTill || fmtDate(validDate),
-                      items: customParts.map((p, i) => ({
-                        description: p.jobDescription || `Item - ${i + 1}`,
-                        unitPrice: parseFloat(p.jobCostUnit) || 0,
-                        quantity: parseInt(p.quantity) || 1,
-                        totalPrice:
-                          (parseFloat(p.jobCostUnit) || 0) *
-                          (parseInt(p.quantity) || 1),
-                      })),
+                      items: customParts.map((p, i) => {
+                        const jobDesc = p.jobDescription || `Item - ${i + 1}`;
+                        const materialPart = p.material || "";
+                        const drawingPart = p.drawingPartNo ? `Drawing No "${p.drawingPartNo}"` : "";
+                        const suffix = [materialPart, drawingPart].filter(Boolean).join(" : ");
+                        const description = suffix ? `${jobDesc}  ${suffix}` : jobDesc;
+                        return {
+                          description,
+                          unitPrice: parseFloat(p.jobCostUnit) || 0,
+                          quantity: parseInt(p.quantity) || 1,
+                          totalPrice:
+                            (parseFloat(p.jobCostUnit) || 0) *
+                            (parseInt(p.quantity) || 1),
+                        };
+                      }),
                       schedule: [],
                       notes: noteLines,
                     });

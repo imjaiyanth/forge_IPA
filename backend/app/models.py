@@ -33,6 +33,7 @@ class Vendor(Base):
     poc = Column(String)
     phone = Column(String)
     email = Column(String)
+    raw_materials = Column(Text)
 
 class Project(Base):
     __tablename__ = "projects"

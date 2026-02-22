@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import AppLayout from "@/components/layout/AppLayout";
-import { getDashboardStats } from "@/services/api";
+import { getDashboardStats, getProjects } from "@/services/api";
 import { Users, FolderKanban, FileText, CheckCircle } from "lucide-react";
 
 export default function Dashboard() {
@@ -10,6 +10,7 @@ export default function Dashboard() {
     { label: "Quotations", value: 0, icon: FileText, color: "bg-warning" },
     { label: "Completed Jobs", value: 0, icon: CheckCircle, color: "bg-success" },
   ]);
+  const [recentProjects, setRecentProjects] = useState<any[]>([]);
 
   useEffect(() => {
     getDashboardStats().then((data: any) => {
@@ -19,6 +20,9 @@ export default function Dashboard() {
         { label: "Quotations", value: data.quotations, icon: FileText, color: "bg-warning" },
         { label: "Completed Jobs", value: data.completedJobs, icon: CheckCircle, color: "bg-success" },
       ]);
+    }).catch(console.error);
+    getProjects().then((projects: any[]) => {
+      setRecentProjects(projects.slice(0, 5));
     }).catch(console.error);
   }, []);
 
@@ -42,27 +46,37 @@ export default function Dashboard() {
         <div className="bg-card rounded-xl p-5 card-shadow border border-border">
           <h3 className="font-semibold mb-4">Recent Projects</h3>
           <div className="space-y-3">
-            {["CNC Shaft Assembly", "Hydraulic Valve Body", "Turbine Blade Set"].map((name) => (
-              <div key={name} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <span className="text-sm">{name}</span>
-                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">In Progress</span>
-              </div>
-            ))}
+            {recentProjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No projects yet.</p>
+            ) : (
+              recentProjects.map((project) => (
+                <div key={project.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                  <span className="text-sm">{project.name}</span>
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">{project.status}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
         <div className="bg-card rounded-xl p-5 card-shadow border border-border">
           <h3 className="font-semibold mb-4">Recent Activity</h3>
           <div className="space-y-3">
-            {[
-              "Quotation QTN-2024-001 sent to Tata Steel",
-              "New project added: Gear Housing Unit",
-              "Work order WO-2024-003 completed",
-            ].map((activity) => (
-              <div key={activity} className="flex items-start gap-2 py-2 border-b border-border last:border-0">
-                <div className="h-2 w-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                <span className="text-sm text-muted-foreground">{activity}</span>
-              </div>
-            ))}
+            {recentProjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No recent activity.</p>
+            ) : (
+              recentProjects.map((project) => (
+                <div key={project.id} className="flex items-start gap-2 py-2 border-b border-border last:border-0">
+                  <div className="h-2 w-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground">
+                    {project.status === "Completed"
+                      ? `Project "${project.name}" completed`
+                      : project.status === "In Progress"
+                      ? `"${project.name}" is in progress`
+                      : `Project "${project.name}" is ${project.status?.toLowerCase() || "active"}`}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

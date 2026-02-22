@@ -9,6 +9,7 @@ interface QuotationData {
     clientPhone: string;
     // Prepared By (Company)
     companyName: string;
+    companyAddress?: string;
     companyPoc: string;
     companyEmail: string;
     companyPhone: string;
@@ -58,17 +59,17 @@ export async function generateQuotationPdf(data: QuotationData) {
         doc.addImage(logoUint8, "PNG", margin, 10, 50, 15); 
     } catch (err) {
         console.error("Failed to load logo", err);
-        // Fallback text if logo fails
+        // Fallback: company name from DB data
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
-        doc.text("J3M FABRICATION LLC", margin, 20);
+        doc.text(data.companyName || "", margin, 20);
     }
 
     // Address (Right)
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    const companyName = "J3M Fabrication LLC";
-    const addressLine = "Houston, Texas, US";
+    const companyName = data.companyName || "";
+    const addressLine = data.companyAddress || "";
     
     // Right align relative to contentWidth + margin
     const rightX = pageWidth - margin;
@@ -153,28 +154,28 @@ export async function generateQuotationPdf(data: QuotationData) {
                         cellY += lineHeight;
                         
                         doc.setFont("helvetica", "normal");
-                        doc.text(data.companyName || "J3M Fabrication LLC", cellX, cellY);
+                        doc.text(data.companyName || "", cellX, cellY);
                         cellY += lineHeight;
 
                         // POC
                         doc.setFont("helvetica", "bold");
                         doc.text("POC:", cellX, cellY);
                         doc.setFont("helvetica", "normal");
-                        doc.text(data.companyPoc || "TPS_Admin | Sales Engineer", cellX + 10, cellY);
+                        doc.text(data.companyPoc || "", cellX + 10, cellY);
                         cellY += lineHeight;
 
                         // Email
                         doc.setFont("helvetica", "bold");
                         doc.text("Email:", cellX, cellY);
                         doc.setFont("helvetica", "normal");
-                        doc.text(data.companyEmail || "admin@j3mfabrication.com", cellX + 12, cellY);
+                        doc.text(data.companyEmail || "", cellX + 12, cellY);
                         cellY += lineHeight;
 
                         // Phone
                         doc.setFont("helvetica", "bold");
                         doc.text("Phone:", cellX, cellY);
                         doc.setFont("helvetica", "normal");
-                        doc.text(data.companyPhone || "480-900-8401", cellX + 13, cellY);
+                        doc.text(data.companyPhone || "", cellX + 13, cellY);
                     }
                 }
                 // Row 2: Proposal Info

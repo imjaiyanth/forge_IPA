@@ -24,12 +24,12 @@ export default function Projects() {
     getProjects().then(setProjects).catch(console.error);
   }, []);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", quotationNo: "", status: "Draft", pocPhone: "" });
+  const [form, setForm] = useState({ name: "", quotationNo: "", status: "Draft" });
   const [editingId, setEditingId] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const resetForm = () => {
-    setForm({ name: "", quotationNo: "", status: "Draft", pocPhone: "" });
+    setForm({ name: "", quotationNo: "", status: "Draft" });
     setEditingId(null);
     setOpen(false);
   };
@@ -63,7 +63,6 @@ export default function Projects() {
       name: project.name,
       quotationNo: project.quotationNo,
       status: project.status,
-      pocPhone: project.pocPhone || ""
     });
     setEditingId(project.id);
     setOpen(true);
@@ -91,7 +90,6 @@ export default function Projects() {
                 <TableHead>Project Name</TableHead>
                 <TableHead>Quotation/Job No</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>POC Phone</TableHead>
                 <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -104,7 +102,6 @@ export default function Projects() {
                   <TableCell>
                     <span className={`text-xs px-2 py-1 rounded font-medium ${statusColors[p.status] || ""}`}>{p.status}</span>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{p.pocPhone}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       <button className="p-1.5 rounded hover:bg-muted" onClick={(e) => handleEdit(e, p)}>
@@ -145,10 +142,6 @@ export default function Projects() {
                   <SelectItem value="Completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>POC Phone</Label>
-              <Input value={form.pocPhone} onChange={(e) => setForm({ ...form, pocPhone: e.target.value })} />
             </div>
           </div>
           <DialogFooter>

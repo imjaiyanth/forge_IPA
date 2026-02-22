@@ -64,6 +64,7 @@ class VendorBase(BaseModel):
     poc: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    raw_materials: Optional[str] = None
 
 class VendorCreate(VendorBase):
     pass
@@ -75,6 +76,7 @@ class VendorUpdate(BaseModel):
     poc: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[str] = None
+    raw_materials: Optional[str] = None
 
 class Vendor(VendorBase):
     id: int

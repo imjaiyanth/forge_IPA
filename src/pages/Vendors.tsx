@@ -15,11 +15,11 @@ export default function Vendors() {
     getVendors().then(setVendors).catch(console.error);
   }, []);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", vendorId: "", address: "", poc: "", phone: "", email: "" });
+  const [form, setForm] = useState({ name: "", vendorId: "", address: "", poc: "", phone: "", email: "", rawMaterials: [] as string[] });
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const resetForm = () => {
-    setForm({ name: "", vendorId: "", address: "", poc: "", phone: "", email: "" });
+    setForm({ name: "", vendorId: "", address: "", poc: "", phone: "", email: "", rawMaterials: [] });
     setEditingId(null);
     setOpen(false);
   };
@@ -50,7 +50,8 @@ export default function Vendors() {
       address: vendor.address || "",
       poc: vendor.poc || "",
       phone: vendor.phone || "",
-      email: vendor.email || ""
+      email: vendor.email || "",
+      rawMaterials: vendor.rawMaterials || []
     });
     setEditingId(vendor.id);
     setOpen(true);
@@ -127,6 +128,51 @@ export default function Vendors() {
                 <Input value={(form as any)[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
               </div>
             ))}
+            
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Raw Material Supplied</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => setForm({ ...form, rawMaterials: [...form.rawMaterials, ""] })}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-40 overflow-y-auto p-1">
+                {form.rawMaterials.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">No raw materials added yet.</p>
+                )}
+                {form.rawMaterials.map((material, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground w-28 shrink-0">Raw Material #{idx + 1}</Label>
+                    <Input
+                      className="h-8 text-sm"
+                      value={material}
+                      placeholder="e.g. Steel, Aluminum"
+                      onChange={(e) => {
+                         const newMaterials = [...form.rawMaterials];
+                         newMaterials[idx] = e.target.value;
+                         setForm({ ...form, rawMaterials: newMaterials });
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        const newMaterials = form.rawMaterials.filter((_, i) => i !== idx);
+                        setForm({ ...form, rawMaterials: newMaterials });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetForm}>Cancel</Button>

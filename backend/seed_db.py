@@ -1,16 +1,40 @@
 from sqlalchemy.orm import Session
-from app import models, database, schemas
+from app import models, database, auth
 
-# Mock data mapping to our models
-# Assuming database.py, models.py, schemas.py are imported correctly from app package
 
-# Mock data from frontend (translated to python dicts)
-mock_members = [
-  { "name": "Rajesh Kumar", "role": "Admin", "email": "rajesh@forgeipa.com", "contact": "+91 98765 43210" },
-  { "name": "Priya Sharma", "role": "Sales", "email": "priya@forgeipa.com", "contact": "+91 98765 43211" },
-  { "name": "Amit Patel", "role": "Project Manager", "email": "amit@forgeipa.com", "contact": "+91 98765 43212" },
-  { "name": "Sunita Reddy", "role": "Sales", "email": "sunita@forgeipa.com", "contact": "+91 98765 43213" },
-]
+def seed_data():
+    db = database.SessionLocal()
+
+    # Only seed a default admin member if the DB is completely empty
+    if db.query(models.Member).first():
+        print("Data already exists. Skipping seed.")
+        db.close()
+        return
+
+    print("Seeding default admin user...")
+    db_member = models.Member(
+        name="Admin",
+        role="Admin",
+        email="admin@company.com",
+        contact="",
+        hashed_password=auth.get_password_hash("admin123"),
+    )
+    db.add(db_member)
+
+    try:
+        db.commit()
+        print("Default admin created: admin@company.com / admin123")
+    except Exception as e:
+        print(f"Error seeding data: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    models.Base.metadata.create_all(bind=database.engine)
+    seed_data()
+
 
 mock_clients = [
   { "name": "Tata Steel Ltd", "client_id": "CLT-001", "address": "Mumbai, Maharashtra", "poc": "Vikram Mehta", "phone": "+91 22 6665 8282", "email": "vikram@tatasteel.com" },
