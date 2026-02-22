@@ -421,7 +421,16 @@ export default function Estimation() {
                     className="h-9 text-sm"
                   />
                 </div>
-                
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">POC Email</Label>
+                  <Input
+                    value={basic.clientEmail}
+                    onChange={(e) => setBasic({ ...basic, clientEmail: e.target.value })}
+                    className="h-9 text-sm"
+                  />
+                </div>
+
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">POC Phone</Label>
                   <Input
